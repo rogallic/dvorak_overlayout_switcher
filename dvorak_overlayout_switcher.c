@@ -10,35 +10,45 @@
 
 #define arraysize(array) (sizeof(array) / sizeof((array)[0]))
 
-// Write there your layouts
-const char layouts[][16] = {"us", "ru,us", "us,ru"};
-// Set index of qwerty layout for dvorak modification
-const int layout_ind_for_dvorak = 2;
+char layouts[][16] = {"us,us", "ru,us", "us"};
+//                              ^
+// Write there your native(not "us" or "us,us") layout. This layout should be installed to your os.
+// First layout used for grab to dvorak and will be "us" or "us,us". Otherwise you have to change the characters_qwerty variable.
+// You can change last layout to other. This layout should be installed to your os.
 
-const int dvorakKeycodes[] = {
+// Keycodes of keys used for switch to layout by index with alt+shift
+const unsigned int switch_keycodes[] = {
+	10, 11, 12
+}; // keycode 10 - "1" or "!", keycode 11 - "2" or "@", keycode 12 - "3" or "#"
+// By default:
+//	alt+shift+1 - swap to us,us with grabbed letters to dvorak
+//	alt+shift+2 - swap to ru,us
+//	alt+shift+3 - swap to us
+
+// 
+const int layout_ind_for_dvorak = 0;
+
+const unsigned int letters_keykodes[] = {
 	                                       20, 21,
 	24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
 	 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
 	  52, 53, 54, 55, 56, 57, 58, 59, 60, 61
 };
 
-const int switchKeycodes[] = {
-	10, 11, 12, 13
-};
 
-const char kQwerty[] =
+const char characters_qwerty[] =
 	          "-="
 	"qwertyuiop[]"
 	"asdfghjkl;'"
 	 "zxcvbnm,./";
 
-const char kDvorak[] =
+const char characters_dvorak[] =
 	          "[]"
 	"',.pyfgcrl/="
 	"aoeuidhtns-"
 	 ";qjkxbmwvz";
 
-int dvorak_mapping[256];
+int dvorak_mapping[128];
 
 int getCurrentLayoutIndex() {
 	FILE *fp;
@@ -50,24 +60,24 @@ int getCurrentLayoutIndex() {
 		exit(1);
 	}
 	int i;
-	char layoutLineStart[] = "layout:";
-	char currentLayout[16];
+	char layout_line_start[] = "layout:";
+	char current_layout[16];
 	while (fgets(lin, sizeof(lin)-1, fp) != NULL) {
 		i = 0;
 		for(; i < 7; i++) {
-			if (lin[i] != layoutLineStart[i]) {
+			if (lin[i] != layout_line_start[i]) {
 				break;
 			}
 		}
 		if (i == 7) {
-			int startLayoutOnLine = 0;
+			int start_layout_on_line = 0;
 			for (; i < sizeof(lin)-1; i++) {
-				if (startLayoutOnLine != 0 || lin[i] != ' ') {
+				if (start_layout_on_line != 0 || lin[i] != ' ') {
 					if (lin[i] != '\n' && lin[i] != '\r' && lin[i] != '\0') {
-						if (startLayoutOnLine == 0) {
-							startLayoutOnLine = i;
+						if (start_layout_on_line == 0) {
+							start_layout_on_line = i;
 						}
-						currentLayout[i - startLayoutOnLine] = lin[i];
+						current_layout[i - start_layout_on_line] = lin[i];
 					}
 				}
 			}
@@ -75,7 +85,7 @@ int getCurrentLayoutIndex() {
 		}
 	}
 	for (i = 0; i < arraysize(layouts); i++) {
-		if (strcmp(currentLayout, layouts[i]) == 0) {
+		if (strcmp(current_layout, layouts[i]) == 0) {
 			return i;
 		}
 	}
@@ -83,22 +93,24 @@ int getCurrentLayoutIndex() {
 }
 
 int main(int argc, char* argv[]) {
+
+	int count_layouts = arraysize(layouts);
 	
 	// Set modifier keys
 	unsigned int only_text_modifiers[] = {AnyKey, ShiftMask};
 	unsigned int switch_text_modifiers[] = {Mod1Mask | ShiftMask};
 	
 	// Create replaces map for dvorak
-	int size = arraysize(dvorakKeycodes);
+	int size = arraysize(letters_keykodes);
 	int en_to_keycode[128];
 	memset(en_to_keycode, 0, sizeof(en_to_keycode));
 	for (int i = 0; i < size; i++) {
-		en_to_keycode[(int) kQwerty[i]] = dvorakKeycodes[i];
+		en_to_keycode[(int) characters_qwerty[i]] = letters_keykodes[i];
 	}
 	memset(dvorak_mapping, 0, sizeof(dvorak_mapping));
 	for (int i = 0; i < size; i++) {
-		assert(en_to_keycode[(int) kDvorak[i]] != 0);
-		dvorak_mapping[dvorakKeycodes[i]] = en_to_keycode[(int) kDvorak[i]];
+		assert(en_to_keycode[(int) characters_dvorak[i]] != 0);
+		dvorak_mapping[letters_keykodes[i]] = en_to_keycode[(int) characters_dvorak[i]];
 	}
 
 	// Get display and window
@@ -111,54 +123,48 @@ int main(int argc, char* argv[]) {
 	Window window = DefaultRootWindow(display);
 
 	// Grab keycodes
-	for (int i = 0; i < arraysize(dvorakKeycodes); i++) {
+	for (int i = 0; i < arraysize(letters_keykodes); i++) {
 		for (int j = 0; j < arraysize(only_text_modifiers); j++) {
-			XGrabKey(display, dvorakKeycodes[i], only_text_modifiers[j], window, True, GrabModeAsync, GrabModeAsync);
+			XGrabKey(display, letters_keykodes[i], only_text_modifiers[j], window, True, GrabModeAsync, GrabModeAsync);
 		}
 	}
-	for (int i = 0; i < arraysize(switchKeycodes); i++) {
+	for (int i = 0; i < arraysize(switch_keycodes); i++) {
 		for (int j = 0; j < arraysize(switch_text_modifiers); j++) {
-			XGrabKey(display, switchKeycodes[i], switch_text_modifiers[j], window, True, GrabModeAsync, GrabModeAsync);
+			XGrabKey(display, switch_keycodes[i], switch_text_modifiers[j], window, True, GrabModeAsync, GrabModeAsync);
 		}
 	}
 
-	XSync(display, True);
+	XSync(display, true);
 	int current_layout_index = getCurrentLayoutIndex();
 	bool is_dvorak_now = false;
 	clock_t prev_get_layout_clock = clock();
 	XEvent event;
 	// Start loop for grab key events
 	while(1) {
-		if (is_dvorak_now) {
-			clock_t t = (double)(clock() - prev_get_layout_clock);
-			if (t > 1000) {
-				if (current_layout_index != layout_ind_for_dvorak) {
-					is_dvorak_now = false;
-				}
-				prev_get_layout_clock = t;
-			}
-		}
 		XNextEvent(display, &event);
+		clock_t t = (double)(clock() - prev_get_layout_clock);
+		if (t > 1000) {
+			current_layout_index = getCurrentLayoutIndex();
+			is_dvorak_now = current_layout_index == layout_ind_for_dvorak;
+			prev_get_layout_clock = t;
+		}
 		if (event.xkey.keycode >= 0 && event.xkey.keycode < arraysize(dvorak_mapping)) {
 			// Check current laуout
 			bool isSwitch = false;
 			// Test if it is switching layout
-			if (event.xkey.keycode > 9 && event.xkey.keycode < 14) {
-				isSwitch = true;
-				is_dvorak_now = false;
-				int to_layout = -1;
-				if (event.xkey.keycode > 11) {
-					is_dvorak_now = true;
-					to_layout = layout_ind_for_dvorak;
-				} else {
-					to_layout = event.xkey.keycode - 10;
+			for(int i = 0; i < count_layouts; i++) {
+				if (event.xkey.keycode == switch_keycodes[i]) {
+					isSwitch = true;
+					is_dvorak_now = false;
+					current_layout_index = i;
+					is_dvorak_now = current_layout_index == layout_ind_for_dvorak;
+					char command[64];
+					char* commandStart = "sleep .2; setxkbmap -layout ";
+					strcpy( command, commandStart );
+					strcat( command, layouts[current_layout_index] );
+					int systemRet = system(command);
+					break;
 				}
-				current_layout_index = to_layout;
-				char command[64];
-				char* commandStart = "sleep .2; setxkbmap -layout ";
-				strcpy( command, commandStart );
-				strcat( command, layouts[to_layout] );
-				int systemRet = system(command);
 			}
 			// Change keycode by map
 			int new_keycode = dvorak_mapping[event.xkey.keycode];
@@ -173,6 +179,6 @@ int main(int argc, char* argv[]) {
 		// Send changed event
 		int junk;
 		XGetInputFocus(display, &event.xkey.window, &junk);
-		XSendEvent(display, event.xkey.window, false, 0, &event);
+		XSendEvent(display, event.xkey.window, False, 0, &event);
 	}
 }
