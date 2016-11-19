@@ -9,7 +9,6 @@
 #include <time.h>
 
 #define arraysize(array) (sizeof(array) / sizeof((array)[0]))
-#define bit_is_set(arr, i) ((arr[i/8] & (1 << (i % 8))) != 0)
 
 // Write there your layouts
 const char layouts[][16] = {"us", "ru,us"};
@@ -75,7 +74,7 @@ int getCurrentLayoutIndex() {
 			break;
 		}
 	}
-	for (i = 0; i < sizeof(layouts)/16; i++) {
+	for (i = 0; i < arraysize(layouts); i++) {
 		if (strcmp(currentLayout, layouts[i]) == 0) {
 			return i;
 		}
