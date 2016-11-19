@@ -11,9 +11,9 @@
 #define arraysize(array) (sizeof(array) / sizeof((array)[0]))
 
 // Write there your layouts
-const char layouts[][16] = {"us", "ru,us"};
+const char layouts[][16] = {"us", "ru,us", "us,ru"};
 // Set index of qwerty layout for dvorak modification
-const int layoutIndForDvorak = 0;
+const int layout_ind_for_dvorak = 2;
 
 const int dvorakKeycodes[] = {
 	                                       20, 21,
@@ -38,7 +38,7 @@ const char kDvorak[] =
 	"aoeuidhtns-"
 	 ";qjkxbmwvz";
 
-int dvorakMapping[256];
+int dvorak_mapping[256];
 
 int getCurrentLayoutIndex() {
 	FILE *fp;
@@ -85,8 +85,8 @@ int getCurrentLayoutIndex() {
 int main(int argc, char* argv[]) {
 	
 	// Set modifier keys
-	unsigned int onlyTextModifiers[] = {AnyKey, ShiftMask};
-	unsigned int switchTextModifiers[] = {Mod1Mask | ShiftMask};
+	unsigned int only_text_modifiers[] = {AnyKey, ShiftMask};
+	unsigned int switch_text_modifiers[] = {Mod1Mask | ShiftMask};
 	
 	// Create replaces map for dvorak
 	int size = arraysize(dvorakKeycodes);
@@ -95,10 +95,10 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < size; i++) {
 		en_to_keycode[(int) kQwerty[i]] = dvorakKeycodes[i];
 	}
-	memset(dvorakMapping, 0, sizeof(dvorakMapping));
+	memset(dvorak_mapping, 0, sizeof(dvorak_mapping));
 	for (int i = 0; i < size; i++) {
 		assert(en_to_keycode[(int) kDvorak[i]] != 0);
-		dvorakMapping[dvorakKeycodes[i]] = en_to_keycode[(int) kDvorak[i]];
+		dvorak_mapping[dvorakKeycodes[i]] = en_to_keycode[(int) kDvorak[i]];
 	}
 
 	// Get display and window
@@ -112,17 +112,18 @@ int main(int argc, char* argv[]) {
 
 	// Grab keycodes
 	for (int i = 0; i < arraysize(dvorakKeycodes); i++) {
-		for (int j = 0; j < arraysize(onlyTextModifiers); j++) {
-			XGrabKey(display, dvorakKeycodes[i], onlyTextModifiers[j], window, True, GrabModeAsync, GrabModeAsync);
+		for (int j = 0; j < arraysize(only_text_modifiers); j++) {
+			XGrabKey(display, dvorakKeycodes[i], only_text_modifiers[j], window, True, GrabModeAsync, GrabModeAsync);
 		}
 	}
 	for (int i = 0; i < arraysize(switchKeycodes); i++) {
-		for (int j = 0; j < arraysize(switchTextModifiers); j++) {
-			XGrabKey(display, switchKeycodes[i], switchTextModifiers[j], window, True, GrabModeAsync, GrabModeAsync);
+		for (int j = 0; j < arraysize(switch_text_modifiers); j++) {
+			XGrabKey(display, switchKeycodes[i], switch_text_modifiers[j], window, True, GrabModeAsync, GrabModeAsync);
 		}
 	}
 
 	XSync(display, True);
+	int current_layout_index = getCurrentLayoutIndex();
 	bool is_dvorak_now = false;
 	clock_t prev_get_layout_clock = clock();
 	XEvent event;
@@ -131,36 +132,36 @@ int main(int argc, char* argv[]) {
 		if (is_dvorak_now) {
 			clock_t t = (double)(clock() - prev_get_layout_clock);
 			if (t > 1000) {
-				int currentLayoutIndex = getCurrentLayoutIndex();
-				if (currentLayoutIndex != layoutIndForDvorak) {
+				if (current_layout_index != layout_ind_for_dvorak) {
 					is_dvorak_now = false;
 				}
 				prev_get_layout_clock = t;
 			}
 		}
 		XNextEvent(display, &event);
-		if (event.xkey.keycode >= 0 && event.xkey.keycode < arraysize(dvorakMapping)) {
+		if (event.xkey.keycode >= 0 && event.xkey.keycode < arraysize(dvorak_mapping)) {
 			// Check current laуout
 			bool isSwitch = false;
 			// Test if it is switching layout
 			if (event.xkey.keycode > 9 && event.xkey.keycode < 14) {
 				isSwitch = true;
 				is_dvorak_now = false;
-				int toLayout = -1;
+				int to_layout = -1;
 				if (event.xkey.keycode > 11) {
 					is_dvorak_now = true;
-					toLayout = layoutIndForDvorak;
+					to_layout = layout_ind_for_dvorak;
 				} else {
-					toLayout = event.xkey.keycode - 10;
+					to_layout = event.xkey.keycode - 10;
 				}
+				current_layout_index = to_layout;
 				char command[64];
 				char* commandStart = "sleep .2; setxkbmap -layout ";
 				strcpy( command, commandStart );
-				strcat( command, layouts[toLayout] );
+				strcat( command, layouts[to_layout] );
 				int systemRet = system(command);
 			}
 			// Change keycode by map
-			int new_keycode = dvorakMapping[event.xkey.keycode];
+			int new_keycode = dvorak_mapping[event.xkey.keycode];
 			if(!is_dvorak_now || isSwitch) {
 				new_keycode = event.xkey.keycode;
 			}
@@ -172,6 +173,6 @@ int main(int argc, char* argv[]) {
 		// Send changed event
 		int junk;
 		XGetInputFocus(display, &event.xkey.window, &junk);
-		XSendEvent(display, event.xkey.window, False, 0, &event);
+		XSendEvent(display, event.xkey.window, false, 0, &event);
 	}
 }
