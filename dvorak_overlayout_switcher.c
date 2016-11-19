@@ -1,11 +1,12 @@
 // Inspired by https://github.com/kentonv/dvorak-qwerty
 
-#include <X11/Xlib.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
+#include <X11/Xlib.h>
 #include <assert.h>
+#include <time.h>
 
 #define arraysize(array) (sizeof(array) / sizeof((array)[0]))
 #define bit_is_set(arr, i) ((arr[i/8] & (1 << (i % 8))) != 0)
@@ -16,41 +17,29 @@ const char layouts[][16] = {"us", "ru,us"};
 const int layoutIndForDvorak = 0;
 
 const int dvorakKeycodes[] = {
-	                                       20, 21,
+										   20, 21,
 	24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
 	 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
 	  52, 53, 54, 55, 56, 57, 58, 59, 60, 61
 };
 
 const int switchKeycodes[] = {
-	10, 11, 12
+	10, 11, 12, 13
 };
 
 const char kQwerty[] =
-              "-="
+			  "-="
 	"qwertyuiop[]"
 	"asdfghjkl;'"
 	 "zxcvbnm,./";
 
 const char kDvorak[] =
-              "[]"
+			  "[]"
 	"',.pyfgcrl/="
 	"aoeuidhtns-"
 	 ";qjkxbmwvz";
 
 int dvorakMapping[256];
-
-
-int (*errorHandler)(Display* display, XErrorEvent* error);
-
-int HandleError(Display* display, XErrorEvent* error) {
-	if (error->error_code == BadAccess) {
-		printf("Can not grab combination.\n");
-		return 0;
-	} else {
-		return errorHandler(display, error);
-	}
-}
 
 int getCurrentLayoutIndex() {
 	FILE *fp;
@@ -117,11 +106,10 @@ int main(int argc, char* argv[]) {
 	Display* display = XOpenDisplay(NULL);
 	if (display == NULL) {
 		printf("Couldn't open display.\n");
-		return 1;
+		exit(1);
 	}
-	Window window = DefaultRootWindow(display);
 
-	errorHandler = XSetErrorHandler(&HandleError);
+	Window window = DefaultRootWindow(display);
 
 	// Grab keycodes
 	for (int i = 0; i < arraysize(dvorakKeycodes); i++) {
@@ -135,70 +123,56 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	XSync(display, False);
-
+	XSync(display, True);
 	bool isDvorak = false;
-	int currentLayoutIndex = getCurrentLayoutIndex();
-
+	clock_t tPrev = clock();
+	XEvent event;
 	// Start loop for grab key events
-	for (;;) {
-		XEvent event;
-		XNextEvent(display, &event);
-
-		switch (event.type) {
-			case KeyPress:
-			case KeyRelease: {
-				if (event.xkey.send_event) {
-					printf("SendEvent loop?\n");
-					break;
+	while(1) {
+		if (isDvorak) {
+			clock_t t = (double)(clock() - tPrev);
+			if (t > 1000) {
+				int currentLayoutIndex = getCurrentLayoutIndex();
+				if (currentLayoutIndex != layoutIndForDvorak) {
+					isDvorak = false;
 				}
-
-				if (event.xkey.keycode >= 0 && event.xkey.keycode < arraysize(dvorakMapping)) {
-					// Check current laуout
-					currentLayoutIndex = getCurrentLayoutIndex(); // TODO: reading settings by every click
-					if (currentLayoutIndex != layoutIndForDvorak) {
-						isDvorak = false;
-					}
-					bool isSwitch = false;
-					// Test if it is switching layout
-					if (event.xkey.keycode > 9 && event.xkey.keycode < 13) {
-						isSwitch = true;
-						isDvorak = false;
-						int toLayout = -1;
-						if (event.xkey.keycode == 12) {
-							isDvorak = true;
-							toLayout = layoutIndForDvorak;
-						} else {
-							toLayout = event.xkey.keycode - 10;
-						}
-						char command[32];
-						char* commandStart = "setxkbmap -layout ";
-						strcpy( command, commandStart );
-						strcat( command, layouts[toLayout] );
-						int systemRet = system(command);
-					}
-					// Change keycode by map
-					int new_keycode = dvorakMapping[event.xkey.keycode];
-					if(!isDvorak || isSwitch) {
-						new_keycode = event.xkey.keycode;
-					}
-					if (new_keycode != 0) {
-						event.xkey.keycode = new_keycode;
-					}
-
-				}
-
-				int junk;
-				XGetInputFocus(display, &event.xkey.window, &junk);
-				// Send changed event
-				XSendEvent(display, event.xkey.window, True, 0, &event);
-
-				break;
+				tPrev = t;
 			}
-			default:
-				printf("Unknown event: %d\n", event.type);
-				break;
 		}
-	}
+		XNextEvent(display, &event);
+		if (event.xkey.keycode >= 0 && event.xkey.keycode < arraysize(dvorakMapping)) {
+			// Check current laуout
+			bool isSwitch = false;
+			// Test if it is switching layout
+			if (event.xkey.keycode > 9 && event.xkey.keycode < 14) {
+				isSwitch = true;
+				isDvorak = false;
+				int toLayout = -1;
+				if (event.xkey.keycode > 11) {
+					isDvorak = true;
+					toLayout = layoutIndForDvorak;
+				} else {
+					toLayout = event.xkey.keycode - 10;
+				}
+				char command[64];
+				char* commandStart = "sleep .2; setxkbmap -layout ";
+				strcpy( command, commandStart );
+				strcat( command, layouts[toLayout] );
+				int systemRet = system(command);
+			}
+			// Change keycode by map
+			int new_keycode = dvorakMapping[event.xkey.keycode];
+			if(!isDvorak || isSwitch) {
+				new_keycode = event.xkey.keycode;
+			}
+			if (new_keycode != 0) {
+				event.xkey.keycode = new_keycode;
+			}
+		}
 
+		// Send changed event
+		int junk;
+		XGetInputFocus(display, &event.xkey.window, &junk);
+		XSendEvent(display, event.xkey.window, False, 0, &event);
+	}
 }
