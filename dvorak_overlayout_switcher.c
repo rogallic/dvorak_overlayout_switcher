@@ -123,19 +123,19 @@ int main(int argc, char* argv[]) {
 	}
 
 	XSync(display, True);
-	bool isDvorak = false;
-	clock_t tPrev = clock();
+	bool is_dvorak_now = false;
+	clock_t prev_get_layout_clock = clock();
 	XEvent event;
 	// Start loop for grab key events
 	while(1) {
-		if (isDvorak) {
-			clock_t t = (double)(clock() - tPrev);
+		if (is_dvorak_now) {
+			clock_t t = (double)(clock() - prev_get_layout_clock);
 			if (t > 1000) {
 				int currentLayoutIndex = getCurrentLayoutIndex();
 				if (currentLayoutIndex != layoutIndForDvorak) {
-					isDvorak = false;
+					is_dvorak_now = false;
 				}
-				tPrev = t;
+				prev_get_layout_clock = t;
 			}
 		}
 		XNextEvent(display, &event);
@@ -145,10 +145,10 @@ int main(int argc, char* argv[]) {
 			// Test if it is switching layout
 			if (event.xkey.keycode > 9 && event.xkey.keycode < 14) {
 				isSwitch = true;
-				isDvorak = false;
+				is_dvorak_now = false;
 				int toLayout = -1;
 				if (event.xkey.keycode > 11) {
-					isDvorak = true;
+					is_dvorak_now = true;
 					toLayout = layoutIndForDvorak;
 				} else {
 					toLayout = event.xkey.keycode - 10;
@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
 			}
 			// Change keycode by map
 			int new_keycode = dvorakMapping[event.xkey.keycode];
-			if(!isDvorak || isSwitch) {
+			if(!is_dvorak_now || isSwitch) {
 				new_keycode = event.xkey.keycode;
 			}
 			if (new_keycode != 0) {
