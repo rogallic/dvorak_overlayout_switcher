@@ -51,45 +51,51 @@ const char characters_dvorak[] =
 int dvorak_mapping[128];
 
 int getCurrentLayoutIndex() {
+	int ret = -2;
 	FILE *fp;
 	char lin[64];
 
 	fp = popen("setxkbmap -query", "r");
 	if (fp == NULL) {
-		printf("Failed to run \"setxkbmap -query\"" );
-		return -2;
-	}
-	int i;
-	char layout_line_start[] = "layout:";
-	char current_layout[16];
-	while (fgets(lin, sizeof(lin)-1, fp) != NULL) {
-		i = 0;
-		for(; i < 7; i++) {
-			if (lin[i] != layout_line_start[i]) {
-				break;
-			}
-		}
-		if (i == 7) {
-			int start_layout_on_line = 0;
-			for (; i < sizeof(lin)-1; i++) {
-				if (start_layout_on_line != 0 || lin[i] != ' ') {
-					if (lin[i] != '\n' && lin[i] != '\r' && lin[i] != '\0') {
-						if (start_layout_on_line == 0) {
-							start_layout_on_line = i;
-						}
-						current_layout[i - start_layout_on_line] = lin[i];
-					}
+		printf("Failed to run \"setxkbmap -query\"\n" );
+	} else {
+		int i;
+		char layout_line_start[] = "layout:";
+		char current_layout[16];
+		while (fgets(lin, sizeof(lin)-1, fp) != NULL) {
+			i = 0;
+			for(; i < 7; i++) {
+				if (lin[i] != layout_line_start[i]) {
+					break;
 				}
 			}
-			break;
+			if (i == 7) {
+				int start_layout_on_line = 0;
+				for (; i < sizeof(lin)-1; i++) {
+					if (start_layout_on_line != 0 || lin[i] != ' ') {
+						if (lin[i] != '\n' && lin[i] != '\r' && lin[i] != '\0') {
+							if (start_layout_on_line == 0) {
+								start_layout_on_line = i;
+							}
+							current_layout[i - start_layout_on_line] = lin[i];
+						}
+					}
+				}
+				break;
+			}
+			ret = -1;
+		}
+		for (i = 0; i < arraysize(layouts); i++) {
+			if (strcmp(current_layout, layouts[i]) == 0) {
+				ret = i;
+				continue;
+			}
 		}
 	}
-	for (i = 0; i < arraysize(layouts); i++) {
-		if (strcmp(current_layout, layouts[i]) == 0) {
-			return i;
-		}
+	if (pclose(fp) == -1) {
+		printf("Can not close reading setxkbmap\n" );
 	}
-	return -1;
+	return ret;
 }
 
 int main(int argc, char* argv[]) {
