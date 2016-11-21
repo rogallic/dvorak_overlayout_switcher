@@ -12,7 +12,7 @@
 
 char layouts[][16] = {"us,us", "ru,us", "us"};
 //                              ^
-// Write there your native(not "us" or "us,us") layout. This layout should be installed to your os.
+// Write there your native(not "us" or "us,us") layout. This layout should be installed on your os.
 // First layout used for grab to dvorak and will be "us" or "us,us". Otherwise you have to change the characters_qwerty variable.
 // You can change last layout to other. This layout should be installed to your os.
 
@@ -56,8 +56,8 @@ int getCurrentLayoutIndex() {
 
 	fp = popen("setxkbmap -query", "r");
 	if (fp == NULL) {
-		printf("Failed to run command\n" );
-		exit(1);
+		printf("Failed to run \"setxkbmap -query\"" );
+		return -2;
 	}
 	int i;
 	char layout_line_start[] = "layout:";
@@ -144,8 +144,11 @@ int main(int argc, char* argv[]) {
 		XNextEvent(display, &event);
 		clock_t t = (double)(clock() - prev_get_layout_clock);
 		if (t > 1000) {
-			current_layout_index = getCurrentLayoutIndex();
-			is_dvorak_now = current_layout_index == layout_ind_for_dvorak;
+			int new_layout_index = getCurrentLayoutIndex();
+			if (new_layout_index > -2) {
+				current_layout_index = new_layout_index;
+				is_dvorak_now = current_layout_index == layout_ind_for_dvorak;
+			}
 			prev_get_layout_clock = t;
 		}
 		if (event.xkey.keycode >= 0 && event.xkey.keycode < arraysize(dvorak_mapping)) {
@@ -168,7 +171,7 @@ int main(int argc, char* argv[]) {
 			}
 			// Change keycode by map
 			int new_keycode = dvorak_mapping[event.xkey.keycode];
-			if(!is_dvorak_now || isSwitch) {
+			if(!is_dvorak_now) {
 				new_keycode = event.xkey.keycode;
 			}
 			if (new_keycode != 0) {
