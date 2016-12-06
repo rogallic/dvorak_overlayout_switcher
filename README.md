@@ -6,7 +6,8 @@ Only for Linux and, maybe, other Unix-based OS!
 
 For compile, you may need ```sudo apt install libx11-dev```.  
 Change in dvorak_overlayout_switcher.c your layouts.  
-Save dvorak_overlayout_switcher.c to ~/usr/bin.  
+Save dvorak_overlayout_switcher.c to ~/bin or /usr/bin 
 Compile by ```gcc dvorak_overlayout_switcher.c -o dvorak_overlayout_switcher -O2 -lX11```.  
-Add permissions to result file.  
+Add execute permissions to result file.  
 Add result file to startup applications.  
+For enable detecting of layout changes - add argument to run command: ```dvorak_overlayout_switcher enable```.

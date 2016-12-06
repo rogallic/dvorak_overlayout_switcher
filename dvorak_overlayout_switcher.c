@@ -100,6 +100,12 @@ int getCurrentLayoutIndex() {
 
 int main(int argc, char* argv[]) {
 
+	// If is other arguments, then enable detecting layout changes.
+	bool detectingLayoutChanges = false;
+	if (argc > 1) {
+		detectingLayoutChanges = true;
+	}
+
 	int count_layouts = arraysize(layouts);
 	
 	// Set modifier keys
@@ -148,14 +154,16 @@ int main(int argc, char* argv[]) {
 	// Start loop for grab key events
 	while(1) {
 		XNextEvent(display, &event);
-		clock_t t = (double)(clock() - prev_get_layout_clock);
-		if (t > 1000) {
-			int new_layout_index = getCurrentLayoutIndex();
-			if (new_layout_index > -2) {
-				current_layout_index = new_layout_index;
-				is_dvorak_now = current_layout_index == layout_ind_for_dvorak;
+		if (detectingLayoutChanges) {
+			clock_t t = (double)(clock() - prev_get_layout_clock);
+			if (t > 1000) {
+				int new_layout_index = getCurrentLayoutIndex();
+				if (new_layout_index > -2) {
+					current_layout_index = new_layout_index;
+					is_dvorak_now = current_layout_index == layout_ind_for_dvorak;
+				}
+				prev_get_layout_clock = t;
 			}
-			prev_get_layout_clock = t;
 		}
 		if (event.xkey.keycode >= 0 && event.xkey.keycode < arraysize(dvorak_mapping)) {
 			// Check current laуout
