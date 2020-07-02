@@ -1,6 +1,6 @@
 # Dvorak overlayout switcher
-Can switch layouts by Alt(Left) + Shift(Left) + 2(or 3).  
-Can switch to dvorak(without shortcuts) by Alt(Left) + Shift(Left) + 1.  
+Switch layouts by Alt(Left) + Shift(Left) + 2(or 3).  
+Switch to dvorak(without shortcuts) by Alt(Left) + Shift(Left) + 1.  
 If you change layout by other(system) shortcut - grabbing to dvorak will be disabled.  
 Only for Linux and, maybe, other Unix-based OS!  
 
